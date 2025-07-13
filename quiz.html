@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=375, initial-scale=1.0"/>
+  <title>你成功收服寶可夢的機率為？</title>
+  <style>
+    /* ---------------- font ---------------- */
+    @font-face {
+      font-family: 'Cubic';
+      src: url('Cubic-11-1.430/fonts/web/Cubic_11.woff2') format('woff2');
+      font-display: swap;
+    }
+
+    /* --------- 手機模擬外框 --------- */
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #app {
+      width: 375px;
+      height: 667px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0,0,0,.8);
+    }
+
+    /* --------- 共用 container --------- */
+    .container {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+
+    /* --------- 模式：封面／題目／結果 --------- */
+    body.start-mode #startPage { 
+      background: url('cover.png') no-repeat center/cover; 
+      cursor: pointer;
+    }
+    #quizPage, #result { display: none; }
+    body.quiz-mode #quizPage {
+      display: block;
+      background: url('bg.png') no-repeat center/cover;
+      background-size: cover;
+    }
+
+    /* --------- Quiz 內容 --------- */
+    .quiz-container {
+      position: relative;
+      top: 40px; left: 12px; right: 12px; bottom: 8px;
+      background: rgba(255,255,255,0.85);
+      border-radius: 12px;
+      padding: 12px;
+      height: 100%;
+      overflow-y: auto;
+      font-family: 'Cubic', monospace;
+    }
+    .question {
+      font-size: 26px;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .quiz-options {
+      position: absolute;
+      bottom: 100px;
+      left: 12px; right: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .btn-img-wrapper {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    .btn-img-wrapper img {
+      max-width: 300px;
+      max-height: 80px;
+      width: 100%;
+      height: auto;
+    }
+    .btn-label {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 90%;
+      text-align: center;
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    /* --------- Result 圖片 & 透明按鈕覆蓋 --------- */
+    .result-img-container {
+      position: relative;
+      width: 100%; height: 100%;
+    }
+    .result-img-container img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .overlay-btn {
+      position: absolute;
+      z-index: 5;
+      cursor: pointer;
+    }
+    /* 這裡的 top/left、width/height 就是紅色按鈕在 375×667 畫面上的座標 */
+    #btnRestart {
+      top: 495px; left: 40px;
+      width: 140px; height: 55px;
+    }
+    #btnDownload {
+      top: 495px; left: 215px;
+      width: 140px; height: 55px;
+    }
+  </style>
+</head>
+<body class="start-mode">
+  <div id="app">
+    <!-- 封面 -->
+    <div id="startPage" class="container"></div>
+
+    <!-- 題目 -->
+    <div id="quizPage" class="container">
+      <div class="quiz-container" id="quizContainer">
+        <div id="quiz"></div>
+      </div>
+    </div>
+
+    <!-- 結果 -->
+    <div id="result" class="container">
+      <div class="result-img-container">
+        <img id="resultImage" src="" alt="結果圖">
+        <!-- 透明覆蓋按鈕 -->
+        <div id="btnRestart" class="overlay-btn" onclick="restart()"></div>
+        <div id="btnDownload" class="overlay-btn" onclick="download()"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    const quizData = [
+      ["你最常在哪個道館戰鬥？", ["水源街","醫環館","光復路二段155巷","盪鞦韆"], ["草","火","水","幽靈"]],
+      ["對戰時你遇到強敵時會？", ["自己衝上去打","先道歉再說","使用眼淚技能攻擊","直接離開"], ["火","水","草","幽靈"]],
+      ["你最喜歡哪個限定活動？", ["大太陽出去玩","下雨天待在家裡工作","晚上瘋狂滑reels不理女友","颱風天在家地獄料理"], ["火","水","草","幽靈"]],
+      ["哪個技能攻擊力最強？", ["你是舔狗","我們還是當朋友就好","我會愛你一輩子","我忘了你說的emoji是哪個了"], ["火","水","草","幽靈"]],
+      ["你最想養的寵物是？", ["生氣的吳沛蓁","累得跟狗一樣的吳沛蓁","24小時粘人的吳沛蓁","睡著的吳沛蓁"], ["火","水","草","幽靈"]],
+      ["使用哪種誘餌最容易捕捉到寶可夢？", ["中華豆花","擔子麵","12 MINI","親一下"], ["火","水","草","幽靈"]],
+      ["遇到瀕死的寶可夢你會？", ["趕快餵她吃東西","抱抱他","給他小驚喜","叫他多喝熱水"], ["火","水","草","幽靈"]]
+    ];
+    const resultImages = {
+      "火": "fire_result.jpg",
+      "水": "water_result.jpg",
+      "草": "grass_result.jpg",
+      "幽靈": "ghost_result.jpg"
+    };
+    let currentQ = 0;
+    const scoreMap = { "火":0, "水":0, "草":0, "幽靈":0 };
+
+    const startPage  = document.getElementById("startPage");
+    const quizPage   = document.getElementById("quizPage");
+    const resultDiv  = document.getElementById("result");
+    const quizEl     = document.getElementById("quiz");
+    const resultImg  = document.getElementById("resultImage");
+
+    startPage.addEventListener("click", () => {
+      document.body.classList.replace("start-mode","quiz-mode");
+      startPage.style.display = "none";
+      quizPage.style.display  = "block";
+      showQuestion();
+    });
+
+    function showQuestion(){
+      quizEl.innerHTML = "";
+      const [q, opts, types] = quizData[currentQ];
+      quizEl.innerHTML = `<div class="question">${q}</div>`;
+      const box = document.createElement("div");
+      box.className = "quiz-options";
+      opts.forEach((opt,i)=>{
+        const w = document.createElement("div");
+        w.className = "btn-img-wrapper";
+        w.onclick = ()=>{
+          scoreMap[ types[i] ]++;
+          currentQ++;
+          currentQ<quizData.length ? showQuestion() : showResult();
+        };
+        const img = document.createElement("img");
+        img.src = "option-button.png";
+        const lbl = document.createElement("div");
+        lbl.className = "btn-label";
+        lbl.textContent = opt;
+        w.append(img,lbl);
+        box.appendChild(w);
+      });
+      quizEl.appendChild(box);
+    }
+
+    function showResult(){
+      quizPage.style.display = "none";
+      const topType = Object.entries(scoreMap)
+                            .sort((a,b)=>b[1]-a[1])[0][0];
+      resultImg.src = resultImages[topType];
+      resultDiv.style.display = "block";
+    }
+
+    function restart(){
+      location.reload();
+    }
+    function download(){
+      html2canvas(resultDiv).then(canvas=>{
+        const link = document.createElement("a");
+        link.download = "result.png";
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+    }
+  </script>
+</body>
+</html>
